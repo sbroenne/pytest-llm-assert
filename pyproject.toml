@@ -1,0 +1,74 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pytest-llm-assert"
+version = "0.1.0"
+description = "Simple LLM-powered assertions for any pytest test"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+authors = [{ name = "Stefan Broenner" }]
+keywords = ["pytest", "llm", "testing", "assertions", "ai"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Framework :: Pytest",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+dependencies = [
+    "pytest>=8.0",
+    "litellm>=1.55",
+]
+
+[project.optional-dependencies]
+azure = [
+    "azure-identity>=1.15",
+]
+dev = [
+    "pytest>=8.0",
+    "python-dotenv>=1.0",
+    "ruff>=0.8",
+    "pyright>=1.1",
+]
+
+[project.entry-points.pytest11]
+llm_assert = "pytest_llm_assert.plugin"
+
+[project.urls]
+Homepage = "https://github.com/sbroenne/pytest-llm-assert"
+Documentation = "https://github.com/sbroenne/pytest-llm-assert#readme"
+Repository = "https://github.com/sbroenne/pytest-llm-assert"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pytest_llm_assert"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+markers = [
+    "integration: marks tests as integration tests (require LLM credentials)",
+]
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "B", "I"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.pyright]
+include = ["src"]
+pythonVersion = "3.11"
+typeCheckingMode = "basic"
