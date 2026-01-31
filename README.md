@@ -34,86 +34,6 @@ assert llm(response, "Does this indicate the operation succeeded?")
 assert llm(sql, "Is this a valid SELECT query that returns user names for users over 21?")
 ```
 
-## Installation
-
-```bash
-pip install pytest-llm-assert
-```
-
-## Setup
-
-This library uses [LiteLLM](https://docs.litellm.ai/) under the hood, giving you access to **100+ LLM providers** with a unified API.
-
-### 1. Choose a Provider
-
-| Provider | Model String | Best For |
-|----------|--------------|----------|
-| **OpenAI** | `openai/gpt-5-mini` | Fast, cheap, good default |
-| **Azure OpenAI** | `azure/your-deployment` | Enterprise, compliance |
-| **Google Vertex AI** | `vertex_ai/gemini-2.0-flash` | Google Cloud users |
-| **Anthropic** | `anthropic/claude-sonnet-4-20250514` | Strong reasoning |
-| **Ollama** | `ollama/llama3.1:8b` | Local, free, private |
-
-See [LiteLLM docs](https://docs.litellm.ai/docs/providers) for all providers.
-
-### 2. Set Your API Key
-
-```bash
-# OpenAI
-export OPENAI_API_KEY=sk-...
-
-# Azure OpenAI (API key)
-export AZURE_API_KEY=...
-export AZURE_API_BASE=https://your-resource.openai.azure.com
-
-# Azure OpenAI (Entra ID / Azure AD) - no key needed!
-pip install pytest-llm-assert[azure]
-export AZURE_API_BASE=https://your-resource.openai.azure.com
-# Uses DefaultAzureCredential (az login, managed identity, etc.)
-
-# Google Vertex AI - uses Application Default Credentials
-gcloud auth application-default login
-export GOOGLE_CLOUD_PROJECT=your-project-id
-export GOOGLE_CLOUD_LOCATION=us-central1  # optional, defaults to us-central1
-
-# Anthropic
-export ANTHROPIC_API_KEY=sk-ant-...
-
-# Ollama (no key needed - runs locally)
-```
-
-### 3. Use It
-
-```python
-from pytest_llm_assert import LLMAssert
-
-# Uses OPENAI_API_KEY from environment
-llm = LLMAssert(model="openai/gpt-5-mini")
-
-# Or pass key explicitly
-llm = LLMAssert(model="openai/gpt-5-mini", api_key="sk-...")
-
-# Azure with Entra ID
-from azure.identity import DefaultAzureCredential
-credential = DefaultAzureCredential()
-token = credential.get_token("https://cognitiveservices.azure.com/.default").token
-llm = LLMAssert(model="azure/gpt-5-mini", api_base="https://your-resource.openai.azure.com", api_key=token)
-```
-
-## Quick Start
-
-```python
-from pytest_llm_assert import LLMAssert
-
-# Configure once
-llm = LLMAssert(model="openai/gpt-5-mini", api_key="...")
-
-# Semantic assertions - returns True/False
-assert llm(result.message, "Does this indicate the operation succeeded?")
-assert llm(error.description, "Does this explain what went wrong?")
-assert not llm(response.status, "Does this indicate a failure?")
-```
-
 ## Why This Works
 
 The LLM evaluates your criterion against the content and returns a judgment. It understands:
@@ -123,18 +43,70 @@ The LLM evaluates your criterion against the content and returns a judgment. It 
 - **Context**: "The operation failed successfully" is actually a failure
 - **Intent**: Generated code can be correct even if it's not identical to a reference
 
+
+## Installation
+
+```bash
+pip install pytest-llm-assert
+```
+
+## Setup
+
+This library uses [LiteLLM](https://docs.litellm.ai/) under the hood, giving you access to **100+ LLM providers** with a unified API. 
+
+```bash
+# OpenAI
+export OPENAI_API_KEY=sk-...
+
+# Azure OpenAI with Entra ID (no API keys)
+export AZURE_API_BASE=https://your-resource.openai.azure.com
+export AZURE_API_VERSION=2024-02-15-preview
+# Uses DefaultAzureCredential: az login, managed identity, etc.
+
+# Ollama (local)
+# Just run: ollama serve
+```
+
+See [LiteLLM docs](https://docs.litellm.ai/docs/providers) for all providers including Vertex AI, Bedrock, Anthropic, and more.
+
+## Quick Start
+
+```python
+from pytest_llm_assert import LLMAssert
+
+llm = LLMAssert(model="openai/gpt-5-mini")  # Uses OPENAI_API_KEY from env
+
+# Semantic assertions - returns True/False
+assert llm("Operation completed successfully", "Does this indicate success?")
+assert llm("Error: connection refused", "Does this indicate a failure?")
+assert not llm("All tests passed", "Does this indicate a failure?")
+```
+
 ## Real Examples
+
+First, create a fixture in `conftest.py`:
+
+```python
+# conftest.py
+import pytest
+from pytest_llm_assert import LLMAssert
+
+@pytest.fixture
+def llm():
+    return LLMAssert(model="openai/gpt-5-mini")
+```
+
+Then use it in your tests:
 
 ### Testing Error Messages
 
 ```python
 def test_validation_error_is_helpful(llm):
     """Error messages should explain the problem clearly."""
-    try:
-        validate_config({"port": "not-a-number"})
-    except ValidationError as e:
-        assert llm(str(e), "Does this explain that port must be a number?")
-        assert llm(str(e), "Does this indicate which field failed validation?")
+    error_msg = "ValidationError: 'port' must be an integer, got 'not-a-number'"
+    
+    assert llm(error_msg, "Does this explain that port must be a number?")
+    assert llm(error_msg, "Does this indicate which field failed validation?")
 ```
 
 ### Testing Generated SQL
@@ -142,22 +114,20 @@ def test_validation_error_is_helpful(llm):
 ```python
 def test_query_builder_generates_valid_sql(llm):
     """Query builder should produce semantically correct SQL."""
-    query = build_query(table="users", filters={"age": ">21"}, select=["name"])
+    query = "SELECT name FROM users WHERE age > 21 ORDER BY name"
     
-    # Don't check exact string - check semantic correctness
     assert llm(query, "Is this a valid SELECT query that returns names of users over 21?")
-    assert llm(query, "Does this query use parameterized values or escape inputs properly?")
 ```
 
-### Testing Function Return Values
+### Testing LLM Output
 
 ```python
-def test_parser_extracts_metadata(llm):
-    """Parser should extract meaningful metadata from documents."""
-    result = parse_document("path/to/contract.pdf")
+def test_summary_is_comprehensive(llm):
+    """Generated summaries should capture key points."""
+    summary = "The contract establishes a 2-year service agreement between..."
     
-    assert llm(result["summary"], "Does this summarize a legal contract?")
-    assert llm(result["summary"], "Is this summary comprehensive?")
+    assert llm(summary, "Does this summarize a legal contract?")
+    assert llm(summary, "Does this mention the contract duration?")
 ```
 
 ## Comparing Judge Models
@@ -218,13 +188,18 @@ export OPENAI_API_KEY=sk-...
 export LLM_MODEL=openai/gpt-5-mini
 ```
 
-## Supported Providers
-
-See [Setup](#setup) for common providers. Full list at [LiteLLM docs](https://docs.litellm.ai/docs/providers).
-
 ## API Reference
 
-### `LLMAssert(content, criterion) -> AssertionResult`
+### `LLMAssert(model, api_key=None, api_base=None, **kwargs)`
+
+Create an LLM assertion helper.
+
+- `model`: LiteLLM model string (e.g., `"openai/gpt-5-mini"`, `"azure/gpt-4o"`)
+- `api_key`: Optional API key (or use environment variables)
+- `api_base`: Optional custom endpoint
+- `**kwargs`: Additional parameters passed to LiteLLM
+
+### `llm(content, criterion) -> AssertionResult`
 
 Evaluate if content meets the criterion.
 

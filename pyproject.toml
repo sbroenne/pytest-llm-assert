@@ -24,12 +24,10 @@ classifiers = [
 dependencies = [
     "pytest>=8.0",
     "litellm>=1.55",
+    "azure-identity>=1.15",
 ]
 
 [project.optional-dependencies]
-azure = [
-    "azure-identity>=1.15",
-]
 dev = [
     "pytest>=8.0",
     "python-dotenv>=1.0",

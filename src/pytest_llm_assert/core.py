@@ -6,7 +6,7 @@ import json
 import os
 import re
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable
 
 import litellm
 
@@ -41,6 +41,9 @@ class LLMAssert:
     Example:
         >>> llm = LLMAssert(model="openai/gpt-5-mini")
         >>> assert llm("Hello world", "Is this a greeting?")
+
+    For Azure OpenAI with Entra ID, just use `az login` - no API key needed:
+        >>> llm = LLMAssert(model="azure/gpt-4o", api_base="https://your-resource.openai.azure.com")
     """
 
     def __init__(
@@ -53,15 +56,51 @@ class LLMAssert:
         """Initialize LLM assertion helper.
 
         Args:
-            model: LiteLLM model string (e.g., "openai/gpt-5-mini")
-            api_key: API key (supports ${ENV_VAR} expansion)
-            api_base: Custom API base URL
+            model: LiteLLM model string (e.g., "openai/gpt-5-mini", "azure/gpt-4o")
+            api_key: API key (supports ${ENV_VAR} expansion). For Azure, leave empty to use Entra ID.
+            api_base: Custom API base URL (required for Azure)
             **kwargs: Additional parameters passed to LiteLLM
         """
         self.model = model
         self.api_key = self._expand_env(api_key) if api_key else None
         self.api_base = api_base
         self.kwargs = kwargs
+        self._azure_ad_token_provider: Callable[[], str] | None = None
+
+        # Auto-configure Azure Entra ID when no API key is provided
+        if self._is_azure_model() and not self._has_azure_api_key():
+            self._azure_ad_token_provider = self._get_azure_ad_token_provider()
+
+    def _is_azure_model(self) -> bool:
+        """Check if the model is an Azure OpenAI model."""
+        return self.model.startswith("azure/")
+
+    def _has_azure_api_key(self) -> bool:
+        """Check if an Azure API key is available."""
+        return bool(self.api_key or os.environ.get("AZURE_API_KEY"))
+
+    @staticmethod
+    def _get_azure_ad_token_provider() -> Callable[[], str] | None:
+        """Get Azure AD token provider for Entra ID authentication.
+
+        Uses LiteLLM's built-in helper which leverages DefaultAzureCredential:
+        - Azure CLI credentials (az login)
+        - Managed Identity
+        - Environment variables (AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, AZURE_TENANT_ID)
+        - Visual Studio Code credentials
+        """
+        try:
+            from litellm.secret_managers.get_azure_ad_token_provider import (
+                get_azure_ad_token_provider,
+            )
+
+            return get_azure_ad_token_provider()
+        except ImportError:
+            # azure-identity not installed
+            return None
+        except Exception:
+            # Credential not available
+            return None
 
     @staticmethod
     def _expand_env(value: str) -> str:
@@ -78,12 +117,18 @@ class LLMAssert:
 
     def _call_llm(self, messages: list[dict[str, str]]) -> str:
         """Call the LLM and return response content."""
+        kwargs = {**self.kwargs}
+
+        # Use Azure AD token provider if configured (Entra ID auth)
+        if self._azure_ad_token_provider is not None:
+            kwargs["azure_ad_token_provider"] = self._azure_ad_token_provider
+
         response = litellm.completion(
             model=self.model,
             messages=messages,
             api_key=self.api_key,
             api_base=self.api_base,
-            **self.kwargs,
+            **kwargs,
         )
         return response.choices[0].message.content or ""  # type: ignore[union-attr]
 

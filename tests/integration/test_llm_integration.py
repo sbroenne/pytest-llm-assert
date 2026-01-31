@@ -47,15 +47,6 @@ AZURE_DEPLOYMENT = os.environ.get("AZURE_OPENAI_DEPLOYMENT", "gpt-5-mini")
 VERTEX_MODEL = os.environ.get("VERTEX_MODEL", "gemini-2.0-flash")
 
 
-def _get_azure_token() -> str:
-    """Get Azure AD token for Azure OpenAI."""
-    from azure.identity import DefaultAzureCredential
-
-    credential = DefaultAzureCredential()
-    token = credential.get_token("https://cognitiveservices.azure.com/.default")
-    return token.token
-
-
 # =============================================================================
 # Fixtures
 # =============================================================================
@@ -63,18 +54,21 @@ def _get_azure_token() -> str:
 
 @pytest.fixture
 def azure_llm_factory():
-    """Factory to create LLMAssert for Azure OpenAI."""
-    endpoint = os.environ.get("AZURE_OPENAI_ENDPOINT")
-    if not endpoint:
-        pytest.skip("AZURE_OPENAI_ENDPOINT not set")
-
+    """Factory to create LLMAssert for Azure OpenAI.
+    
+    Uses Entra ID authentication automatically (via DefaultAzureCredential).
+    Requires: AZURE_OPENAI_ENDPOINT environment variable.
+    Auth: az login or managed identity - no API key needed.
+    """
     from pytest_llm_assert import LLMAssert
 
+    endpoint = os.environ["AZURE_OPENAI_ENDPOINT"]  # Fail if not set
+
     def create(deployment: str) -> LLMAssert:
+        # Entra ID auth is automatic when no api_key is provided
         return LLMAssert(
             model=f"azure/{deployment}",
             api_base=endpoint,
-            api_key=_get_azure_token(),
         )
 
     return create
@@ -82,30 +76,22 @@ def azure_llm_factory():
 
 @pytest.fixture
 def vertex_llm_factory():
-    """Factory to create LLMAssert for Google Vertex AI."""
+    """Factory to create LLMAssert for Google Vertex AI.
+    
+    Uses Application Default Credentials via LiteLLM.
+    Requires: GOOGLE_CLOUD_PROJECT, VERTEXAI_PROJECT, or GCP_PROJECT_ID environment variable.
+    Auth: gcloud auth application-default login.
+    """
+    from pytest_llm_assert import LLMAssert
+
     project = (
         os.environ.get("GOOGLE_CLOUD_PROJECT")
         or os.environ.get("VERTEXAI_PROJECT")
-        or os.environ.get("GCP_PROJECT_ID")
+        or os.environ["GCP_PROJECT_ID"]  # Fail if none set
     )
-    location = (
-        os.environ.get("GOOGLE_CLOUD_LOCATION")
-        or os.environ.get("VERTEXAI_LOCATION")
-        or os.environ.get("GCP_LOCATION")
-        or "us-central1"
-    )
-
-    if not project:
-        pytest.skip("GOOGLE_CLOUD_PROJECT or GCP_PROJECT_ID not set")
-
-    from pytest_llm_assert import LLMAssert
 
     def create(model: str) -> LLMAssert:
-        return LLMAssert(
-            model=f"vertex_ai/{model}",
-            vertex_project=project,
-            vertex_location=location,
-        )
+        return LLMAssert(model=f"vertex_ai/{model}")
 
     return create
 
@@ -113,10 +99,7 @@ def vertex_llm_factory():
 # Combined fixture for running same tests across providers
 @pytest.fixture(params=["azure", "vertex"])
 def llm(request, azure_llm_factory, vertex_llm_factory):
-    """LLM instance that cycles through available providers.
-
-    Skips providers that aren't configured.
-    """
+    """LLM instance that cycles through available providers."""
     if request.param == "azure":
         return azure_llm_factory(AZURE_DEPLOYMENT)
     elif request.param == "vertex":
