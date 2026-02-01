@@ -6,9 +6,14 @@ import json
 import os
 import re
 from dataclasses import dataclass
+from pathlib import Path
 from typing import TYPE_CHECKING, Callable
 
 import litellm
+
+# Load default system prompt from file
+_PROMPTS_DIR = Path(__file__).parent / "prompts"
+_DEFAULT_SYSTEM_PROMPT = (_PROMPTS_DIR / "system_prompt.md").read_text().strip()
 
 if TYPE_CHECKING:
     from typing import Any
@@ -83,12 +88,7 @@ class LLMAssert:
         self.api_base = api_base
         self.kwargs = kwargs
         self._azure_ad_token_provider: Callable[[], str] | None = None
-        self._system_prompt: str = (
-            "You are an assertion evaluator. "
-            "Evaluate if the given content meets the specified criterion.\n\n"
-            "Respond in JSON format:\n"
-            '{"result": "PASS" or "FAIL", "reasoning": "brief explanation"}'
-        )
+        self._system_prompt: str = _DEFAULT_SYSTEM_PROMPT
         self.response: LLMResponse | None = None
 
         # Auto-configure Azure Entra ID when no API key is provided
