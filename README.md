@@ -58,7 +58,7 @@ This library uses [LiteLLM](https://docs.litellm.ai/) under the hood, giving you
 # OpenAI
 export OPENAI_API_KEY=sk-...
 
-# Azure OpenAI with Entra ID (no API keys)
+# Azure OpenAI with Entra ID (no API keys example )
 export AZURE_API_BASE=https://your-resource.openai.azure.com
 export AZURE_API_VERSION=2024-02-15-preview
 # Uses DefaultAzureCredential: az login, managed identity, etc.
@@ -206,9 +206,42 @@ Evaluate if content meets the criterion.
 - Returns `AssertionResult` which is truthy if criterion is met
 - Access `.reasoning` for the LLM's explanation
 
+### `llm.system_prompt`
+
+Get or set the system prompt used for evaluations.
+
+```python
+llm = LLMAssert(model="openai/gpt-5-mini")
+
+# Get current prompt
+print(llm.system_prompt)
+
+# Override with custom prompt
+llm.system_prompt = """You are a strict code reviewer.
+Evaluate if the code meets the criterion.
+Respond in JSON: {"result": "PASS" or "FAIL", "reasoning": "..."}"""
+```
+
+### `llm.response`
+
+Access details from the last LLM call (tokens, cost, model info).
+
+```python
+result = llm("content", "criterion")
+assert result
+
+# Check response details
+print(llm.response.cost)              # Cost in USD (if available)
+print(llm.response.total_tokens)      # Total tokens used
+print(llm.response.prompt_tokens)     # Input tokens
+print(llm.response.completion_tokens) # Output tokens  
+print(llm.response.model)             # Model used
+```
+
 ## See Also
 
 - **[Examples](examples/)** — Example pytest tests showing basic usage, model comparison, and fixture patterns
+- **[Contributing](CONTRIBUTING.md)** — Development setup, running tests, and code style
 - **[pytest-aitest](https://github.com/sbroenne/pytest-aitest)** — Full framework for testing MCP servers, CLIs, and AI agents. Uses pytest-llm-assert for the judge.
 
 ## License

@@ -33,6 +33,7 @@ dev = [
     "python-dotenv>=1.0",
     "ruff>=0.8",
     "pyright>=1.1",
+    "pre-commit>=3.0",
 ]
 
 [project.entry-points.pytest11]

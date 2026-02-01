@@ -15,6 +15,22 @@ if TYPE_CHECKING:
 
 
 @dataclass(slots=True)
+class LLMResponse:
+    """Response details from the last LLM call.
+
+    Access via `llm.response` after making an assertion call.
+    """
+
+    model: str | None = None
+    prompt_tokens: int | None = None
+    completion_tokens: int | None = None
+    total_tokens: int | None = None
+    cost: float | None = None
+    response_id: str | None = None
+    created: int | None = None
+
+
+@dataclass(slots=True)
 class AssertionResult:
     """Result of an LLM assertion with rich repr for pytest."""
 
@@ -57,7 +73,8 @@ class LLMAssert:
 
         Args:
             model: LiteLLM model string (e.g., "openai/gpt-5-mini", "azure/gpt-4o")
-            api_key: API key (supports ${ENV_VAR} expansion). For Azure, leave empty to use Entra ID.
+            api_key: API key (supports ${ENV_VAR} expansion).
+                For Azure, leave empty to use Entra ID.
             api_base: Custom API base URL (required for Azure)
             **kwargs: Additional parameters passed to LiteLLM
         """
@@ -66,6 +83,13 @@ class LLMAssert:
         self.api_base = api_base
         self.kwargs = kwargs
         self._azure_ad_token_provider: Callable[[], str] | None = None
+        self._system_prompt: str = (
+            "You are an assertion evaluator. "
+            "Evaluate if the given content meets the specified criterion.\n\n"
+            "Respond in JSON format:\n"
+            '{"result": "PASS" or "FAIL", "reasoning": "brief explanation"}'
+        )
+        self.response: LLMResponse | None = None
 
         # Auto-configure Azure Entra ID when no API key is provided
         if self._is_azure_model() and not self._has_azure_api_key():
@@ -86,7 +110,7 @@ class LLMAssert:
         Uses LiteLLM's built-in helper which leverages DefaultAzureCredential:
         - Azure CLI credentials (az login)
         - Managed Identity
-        - Environment variables (AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, AZURE_TENANT_ID)
+        - Environment variables (AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, ...)
         - Visual Studio Code credentials
         """
         try:
@@ -102,6 +126,20 @@ class LLMAssert:
             # Credential not available
             return None
 
+    @property
+    def system_prompt(self) -> str:
+        """Get the system prompt used for LLM assertions."""
+        return self._system_prompt
+
+    @system_prompt.setter
+    def system_prompt(self, value: str) -> None:
+        """Set a custom system prompt for LLM assertions.
+
+        The prompt should instruct the LLM to evaluate content against a criterion
+        and respond in JSON format with 'result' (PASS/FAIL) and 'reasoning' keys.
+        """
+        self._system_prompt = value
+
     @staticmethod
     def _expand_env(value: str) -> str:
         """Expand ${VAR} patterns in string."""
@@ -116,7 +154,7 @@ class LLMAssert:
         return text[: max_len - 3] + "..."
 
     def _call_llm(self, messages: list[dict[str, str]]) -> str:
-        """Call the LLM and return response content."""
+        """Call the LLM and return response content. Updates self.response."""
         kwargs = {**self.kwargs}
 
         # Use Azure AD token provider if configured (Entra ID auth)
@@ -130,7 +168,27 @@ class LLMAssert:
             api_base=self.api_base,
             **kwargs,
         )
-        return response.choices[0].message.content or ""  # type: ignore[union-attr]
+        content = response.choices[0].message.content or ""  # type: ignore[union-attr]
+
+        # Store response details on instance
+        self.response = LLMResponse(
+            model=getattr(response, "model", None),
+            response_id=getattr(response, "id", None),
+            created=getattr(response, "created", None),
+        )
+
+        # Extract usage info
+        usage = getattr(response, "usage", None)
+        if usage:
+            self.response.prompt_tokens = getattr(usage, "prompt_tokens", None)
+            self.response.completion_tokens = getattr(usage, "completion_tokens", None)
+            self.response.total_tokens = getattr(usage, "total_tokens", None)
+
+        # Extract cost from hidden params (litellm calculates this)
+        if hasattr(response, "_hidden_params"):
+            self.response.cost = response._hidden_params.get("response_cost")
+
+        return content
 
     def __call__(self, content: str, criterion: str) -> AssertionResult:
         """Evaluate if content meets the given criterion.
@@ -145,12 +203,7 @@ class LLMAssert:
         messages = [
             {
                 "role": "system",
-                "content": (
-                    "You are an assertion evaluator. "
-                    "Evaluate if the given content meets the specified criterion.\n\n"
-                    "Respond in JSON format:\n"
-                    '{"result": "PASS" or "FAIL", "reasoning": "brief explanation"}'
-                ),
+                "content": self._system_prompt,
             },
             {
                 "role": "user",
@@ -158,12 +211,12 @@ class LLMAssert:
             },
         ]
 
-        response = self._call_llm(messages)
+        response_text = self._call_llm(messages)
 
         # Parse JSON response
         try:
             # Handle potential markdown code blocks
-            text = response.strip()
+            text = response_text.strip()
             if text.startswith("```"):
                 text = text.split("```")[1]
                 if text.startswith("json"):
@@ -173,10 +226,10 @@ class LLMAssert:
             reasoning = data.get("reasoning", "")
         except (json.JSONDecodeError, AttributeError):
             # Fallback to line-based parsing
-            lines = response.strip().split("\n", 1)
+            lines = response_text.strip().split("\n", 1)
             first_line = lines[0].strip().upper()
             passed = first_line in ("PASS", "YES", "TRUE", "PASSED")
-            reasoning = lines[1].strip() if len(lines) > 1 else response
+            reasoning = lines[1].strip() if len(lines) > 1 else response_text
 
         return AssertionResult(
             passed=passed,

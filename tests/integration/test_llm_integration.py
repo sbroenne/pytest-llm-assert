@@ -55,7 +55,7 @@ VERTEX_MODEL = os.environ.get("VERTEX_MODEL", "gemini-2.0-flash")
 @pytest.fixture
 def azure_llm_factory():
     """Factory to create LLMAssert for Azure OpenAI.
-    
+
     Uses Entra ID authentication automatically (via DefaultAzureCredential).
     Requires: AZURE_OPENAI_ENDPOINT environment variable.
     Auth: az login or managed identity - no API key needed.
@@ -77,18 +77,20 @@ def azure_llm_factory():
 @pytest.fixture
 def vertex_llm_factory():
     """Factory to create LLMAssert for Google Vertex AI.
-    
+
     Uses Application Default Credentials via LiteLLM.
-    Requires: GOOGLE_CLOUD_PROJECT, VERTEXAI_PROJECT, or GCP_PROJECT_ID environment variable.
+    Requires: GOOGLE_CLOUD_PROJECT, VERTEXAI_PROJECT, or GCP_PROJECT_ID env var.
     Auth: gcloud auth application-default login.
     """
     from pytest_llm_assert import LLMAssert
 
-    project = (
+    # Ensure at least one project env var is set (fail fast if none)
+    if not (
         os.environ.get("GOOGLE_CLOUD_PROJECT")
         or os.environ.get("VERTEXAI_PROJECT")
-        or os.environ["GCP_PROJECT_ID"]  # Fail if none set
-    )
+        or os.environ.get("GCP_PROJECT_ID")
+    ):
+        pytest.skip("No GCP project ID environment variable set")
 
     def create(model: str) -> LLMAssert:
         return LLMAssert(model=f"vertex_ai/{model}")
