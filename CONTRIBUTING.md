@@ -100,6 +100,8 @@ pytest-llm-assert/
 4. Run tests: `pytest tests/unit/ -v`
 5. Submit a pull request
 
+All PRs are **squash merged** to keep a clean commit history on main.
+
 ## Code Style
 
 - Follow [PEP 8](https://peps.python.org/pep-0008/) (enforced by Ruff)

@@ -15,7 +15,12 @@ cd YOUR_REPO
 gh api repos/YOUR_USERNAME/YOUR_REPO -X PATCH \
   -f has_discussions=true \
   -f delete_branch_on_merge=true \
-  -f allow_auto_merge=true
+  -f allow_auto_merge=true \
+  -f allow_squash_merge=true \
+  -f allow_merge_commit=false \
+  -f allow_rebase_merge=false \
+  -f squash_merge_commit_title=PR_TITLE \
+  -f squash_merge_commit_message=PR_BODY
 
 # Add repository topics
 echo '{"names":["python","your-topic-1","your-topic-2"]}' | \
