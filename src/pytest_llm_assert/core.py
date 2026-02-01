@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import functools
 import json
 import os
 import re
@@ -17,6 +18,27 @@ _DEFAULT_SYSTEM_PROMPT = (_PROMPTS_DIR / "system_prompt.md").read_text().strip()
 
 if TYPE_CHECKING:
     from typing import Any
+
+
+@functools.cache
+def _get_azure_ad_token_provider() -> Callable[[], str] | None:
+    """Get Azure AD token provider for Entra ID authentication.
+
+    Uses LiteLLM's built-in helper which leverages DefaultAzureCredential.
+    Cached at module level to avoid recreating credentials on each call.
+    """
+    try:
+        from litellm.secret_managers.get_azure_ad_token_provider import (
+            get_azure_ad_token_provider,
+        )
+
+        return get_azure_ad_token_provider()
+    except ImportError:
+        # azure-identity not installed
+        return None
+    except Exception:
+        # Credential not available
+        return None
 
 
 @dataclass(slots=True)
@@ -93,7 +115,7 @@ class LLMAssert:
 
         # Auto-configure Azure Entra ID when no API key is provided
         if self._is_azure_model() and not self._has_azure_api_key():
-            self._azure_ad_token_provider = self._get_azure_ad_token_provider()
+            self._azure_ad_token_provider = _get_azure_ad_token_provider()
 
     def _is_azure_model(self) -> bool:
         """Check if the model is an Azure OpenAI model."""
@@ -102,29 +124,6 @@ class LLMAssert:
     def _has_azure_api_key(self) -> bool:
         """Check if an Azure API key is available."""
         return bool(self.api_key or os.environ.get("AZURE_API_KEY"))
-
-    @staticmethod
-    def _get_azure_ad_token_provider() -> Callable[[], str] | None:
-        """Get Azure AD token provider for Entra ID authentication.
-
-        Uses LiteLLM's built-in helper which leverages DefaultAzureCredential:
-        - Azure CLI credentials (az login)
-        - Managed Identity
-        - Environment variables (AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, ...)
-        - Visual Studio Code credentials
-        """
-        try:
-            from litellm.secret_managers.get_azure_ad_token_provider import (
-                get_azure_ad_token_provider,
-            )
-
-            return get_azure_ad_token_provider()
-        except ImportError:
-            # azure-identity not installed
-            return None
-        except Exception:
-            # Credential not available
-            return None
 
     @property
     def system_prompt(self) -> str:
