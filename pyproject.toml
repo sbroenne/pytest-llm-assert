@@ -22,18 +22,19 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
 ]
 dependencies = [
-    "pytest>=8.0",
-    "litellm>=1.55",
-    "azure-identity>=1.15",
+    "pytest>=9.0",
+    "litellm>=1.81",
+    "azure-identity>=1.25",
 ]
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=8.0",
-    "python-dotenv>=1.0",
-    "ruff>=0.8",
-    "pyright>=1.1",
-    "pre-commit>=3.0",
+    "pytest>=9.0",
+    "pytest-cov>=6.0",
+    "python-dotenv>=1.2",
+    "ruff>=0.14",
+    "pyright>=1.1.408",
+    "pre-commit>=4.5",
 ]
 
 [project.entry-points.pytest11]
