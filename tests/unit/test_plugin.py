@@ -77,16 +77,15 @@ class TestPackageExports:
 
     def test_version_available(self) -> None:
         """Package version should be accessible."""
-        import pytest_llm_assert
+        from pytest_llm_assert import __version__
 
-        assert hasattr(pytest_llm_assert, "__version__")
-        assert pytest_llm_assert.__version__ == "0.1.0"
+        assert __version__ == "0.1.0"
 
     def test_all_exports(self) -> None:
         """__all__ should list expected exports."""
-        import pytest_llm_assert
+        from pytest_llm_assert import __all__ as exports
 
-        assert set(pytest_llm_assert.__all__) == {
+        assert set(exports) == {
             "LLMAssert",
             "AssertionResult",
             "LLMResponse",

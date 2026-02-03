@@ -56,6 +56,9 @@ def llm(request):
         return _get_azure_llm()
     elif request.param == "vertex":
         return _get_vertex_llm()
+    else:
+        msg = f"Unknown provider: {request.param}"
+        raise ValueError(msg)
 
 
 class TestModelComparison:
