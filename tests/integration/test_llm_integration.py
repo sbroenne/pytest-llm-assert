@@ -10,12 +10,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import TYPE_CHECKING
-
 import pytest
-
-if TYPE_CHECKING:
-    from pytest_llm_assert import LLMAssert
 
 
 # Load .env from workspace root (search upward)
@@ -106,6 +101,9 @@ def llm(request, azure_llm_factory, vertex_llm_factory):
         return azure_llm_factory(AZURE_DEPLOYMENT)
     elif request.param == "vertex":
         return vertex_llm_factory(VERTEX_MODEL)
+    else:
+        msg = f"Unknown provider: {request.param}"
+        raise ValueError(msg)
 
 
 class TestBasicAssertions:
