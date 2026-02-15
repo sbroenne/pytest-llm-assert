@@ -21,9 +21,10 @@ The LLM evaluates your criterion and returns pass/fail — no regex, no parsing,
 ## Features
 
 - **Semantic assertions** — Assert meaning, not exact strings
-- **100+ LLM providers** — OpenAI, Azure, Anthropic, Ollama, Vertex AI, Bedrock via [LiteLLM](https://docs.litellm.ai/)
+- **Multiple LLM providers** — OpenAI, Azure, Anthropic, Gemini, Groq via [Pydantic AI](https://ai.pydantic.dev/)
 - **pytest native** — Works as a standard pytest plugin/fixture
-- **Response introspection** — Access tokens, cost, and reasoning via `llm.response`
+- **Response introspection** — Access tokens and reasoning via `llm.response`
+- **Type-safe** — Built with Pydantic for structured outputs
 
 ## Installation
 
@@ -40,7 +41,7 @@ from pytest_llm_assert import LLMAssert
 
 @pytest.fixture
 def llm():
-    return LLMAssert(model="openai/gpt-5-mini")
+    return LLMAssert(model="openai:gpt-4o-mini")
 ```
 
 ```python
@@ -74,13 +75,14 @@ gcloud auth application-default login
 aws configure  # Uses IAM credentials
 ```
 
-Supports 100+ providers via [LiteLLM](https://docs.litellm.ai/docs/providers) — including API key auth for OpenAI, Anthropic, Ollama, and more.
+Supports multiple providers via [Pydantic AI](https://ai.pydantic.dev/) — including API key auth for OpenAI, Anthropic, and more.
 
 ## Documentation
 
-- **[Configuration](docs/configuration.md)** — All providers, CLI options, environment variables
-- **[API Reference](docs/api-reference.md)** — Full API documentation
-- **[Comparing Judge Models](docs/comparing-models.md)** — Evaluate which LLM works best for your assertions
+- **[Documentation](https://sbroenne.github.io/pytest-llm-assert)** — Full documentation with examples
+- **[Configuration](https://sbroenne.github.io/pytest-llm-assert/configuration/)** — All providers, CLI options, environment variables
+- **[API Reference](https://sbroenne.github.io/pytest-llm-assert/api-reference/)** — Full API documentation
+- **[Comparing Judge Models](https://sbroenne.github.io/pytest-llm-assert/comparing-models/)** — Evaluate which LLM works best for your assertions
 - **[Examples](examples/)** — Working pytest examples
 
 ## Related
@@ -91,8 +93,8 @@ Supports 100+ providers via [LiteLLM](https://docs.litellm.ai/docs/providers) �
 ## Requirements
 
 - Python 3.11+
-- pytest 8.0+
-- An LLM (OpenAI, Azure, Anthropic, etc.) or local [Ollama](https://ollama.ai/)
+- pytest 9.0+
+- An LLM (OpenAI, Azure, Anthropic, etc.) or local Ollama
 
 ## Security
 

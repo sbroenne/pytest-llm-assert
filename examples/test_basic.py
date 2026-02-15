@@ -16,7 +16,7 @@ def llm():
     """LLM assertion helper - configure via environment or override here."""
     import os
 
-    model = os.environ.get("LLM_MODEL", "openai/gpt-5-mini")
+    model = os.environ.get("LLM_MODEL", "openai:gpt-4o-mini")
     return LLMAssert(model=model)
 
 
