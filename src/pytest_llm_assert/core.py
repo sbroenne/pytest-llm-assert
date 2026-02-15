@@ -108,7 +108,7 @@ class LLMAssert:
         # Create the agent with structured output
         self._agent = Agent(
             model,
-            result_type=EvaluationResult,
+            output_type=EvaluationResult,
             system_prompt=self._system_prompt,
         )
 
@@ -128,7 +128,7 @@ class LLMAssert:
         # Recreate agent with new system prompt
         self._agent = Agent(
             self.model_name or self._agent.model,
-            result_type=EvaluationResult,
+            output_type=EvaluationResult,
             system_prompt=self._system_prompt,
         )
 
