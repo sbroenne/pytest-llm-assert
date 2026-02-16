@@ -17,9 +17,7 @@ class TestStructuredResponseParsing:
     @patch("pydantic_ai.Agent.run_sync")
     def test_parses_pass_result(self, mock_run_sync: MagicMock) -> None:
         mock_result = MagicMock()
-        mock_result.output = EvaluationResult(
-            result="PASS", reasoning="Looks good"
-        )
+        mock_result.output = EvaluationResult(result="PASS", reasoning="Looks good")
         mock_result.usage.return_value = MagicMock(
             request_tokens=10, response_tokens=5, total_tokens=15
         )
@@ -54,9 +52,7 @@ class TestStructuredResponseParsing:
     def test_case_insensitive_pass(self, mock_run_sync: MagicMock) -> None:
         """PASS result should be case-insensitive."""
         mock_result = MagicMock()
-        mock_result.output = EvaluationResult(
-            result="pass", reasoning="Valid"
-        )
+        mock_result.output = EvaluationResult(result="pass", reasoning="Valid")
         mock_result.usage.return_value = MagicMock(
             request_tokens=10, response_tokens=5, total_tokens=15
         )
@@ -72,9 +68,7 @@ class TestStructuredResponseParsing:
     def test_case_insensitive_fail(self, mock_run_sync: MagicMock) -> None:
         """FAIL result should be case-insensitive."""
         mock_result = MagicMock()
-        mock_result.output = EvaluationResult(
-            result="fail", reasoning="Invalid"
-        )
+        mock_result.output = EvaluationResult(result="fail", reasoning="Invalid")
         mock_result.usage.return_value = MagicMock(
             request_tokens=10, response_tokens=5, total_tokens=15
         )

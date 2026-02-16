@@ -54,7 +54,9 @@ class TestAzureEnvironmentVariables:
     @patch("pydantic_ai.Agent.__init__", return_value=None)
     def test_azure_endpoint_via_env(self, mock_agent_init: MagicMock) -> None:
         """Azure endpoint should be set via AZURE_OPENAI_ENDPOINT."""
-        with patch.dict("os.environ", {"AZURE_OPENAI_ENDPOINT": "https://test.openai.azure.com"}):
+        with patch.dict(
+            "os.environ", {"AZURE_OPENAI_ENDPOINT": "https://test.openai.azure.com"}
+        ):
             # Constructor should not fail with proper env setup
             llm = LLMAssert(model="azure:gpt-4o", api_key="test-key")
             assert llm.model_name == "azure:gpt-4o"

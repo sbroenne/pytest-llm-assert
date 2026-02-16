@@ -159,9 +159,7 @@ class TestLLMCall:
         assert result.content_preview == "Hello world"
 
     @patch("pydantic_ai.Agent.run_sync")
-    def test_long_content_truncated_in_preview(
-        self, mock_run_sync: MagicMock
-    ) -> None:
+    def test_long_content_truncated_in_preview(self, mock_run_sync: MagicMock) -> None:
         mock_result = MagicMock()
         mock_result.output = EvaluationResult(result="PASS", reasoning="OK")
         mock_result.usage.return_value = MagicMock(

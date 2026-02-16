@@ -113,7 +113,7 @@ def gemini_llm_factory():
 @pytest.fixture(params=["openai"])
 def llm(request, openai_llm_factory):
     """LLM instance that cycles through available providers.
-    
+
     Default is OpenAI only for quick testing.
     Can be extended to include azure and gemini when those credentials are available.
     """
