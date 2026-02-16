@@ -1,7 +1,10 @@
 """Integration tests for pytest-llm-assert with real LLM calls.
 
 These tests verify that LLM-powered assertions work correctly with actual models.
-Supports multiple providers: OpenAI, Azure OpenAI, and Google Gemini.
+Primary provider: OpenAI (configured by default).
+Additional providers available: Azure OpenAI, Google Gemini (see fixtures).
+
+To test with different providers, modify the llm fixture params list.
 
 Run with: pytest -m integration -v
 """
