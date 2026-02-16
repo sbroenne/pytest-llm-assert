@@ -163,7 +163,7 @@ class LLMAssert:
         # Extract usage info from the result
         usage = result.usage()
         self.response = LLMResponse(
-            model=result.model_name,
+            model=result.model_name,  # type: ignore[attr-defined]
             prompt_tokens=usage.request_tokens if usage else None,
             completion_tokens=usage.response_tokens if usage else None,
             total_tokens=usage.total_tokens if usage else None,
