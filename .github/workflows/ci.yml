@@ -81,6 +81,32 @@ jobs:
       - name: Run unit tests
         run: uv run pytest tests/unit/ -v --tb=short
 
+  test-integration:
+    name: Integration Tests (Optional)
+    runs-on: ubuntu-latest
+    # Only run if OPENAI_API_KEY secret is available
+    if: ${{ vars.RUN_INTEGRATION_TESTS == 'true' }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "latest"
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: uv sync --all-extras
+
+      - name: Run integration tests
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: uv run pytest tests/integration/ -v --tb=short -m integration
+
   test-smoke:
     name: Smoke Test
     runs-on: ubuntu-latest

@@ -84,6 +84,7 @@ Supports multiple providers via [Pydantic AI](https://ai.pydantic.dev/) — incl
 - **[API Reference](https://sbroenne.github.io/pytest-llm-assert/api-reference/)** — Full API documentation
 - **[Comparing Judge Models](https://sbroenne.github.io/pytest-llm-assert/comparing-models/)** — Evaluate which LLM works best for your assertions
 - **[Examples](examples/)** — Working pytest examples
+- **[Integration Tests](docs/INTEGRATION_TESTS.md)** — Running tests with real LLM APIs
 
 ## Related
 
