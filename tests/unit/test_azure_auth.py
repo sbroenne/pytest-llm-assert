@@ -67,13 +67,13 @@ class TestAzureCallWithCredentials:
     def test_azure_call_with_api_key(self, mock_run_sync: MagicMock) -> None:
         """Azure model should work with API key."""
         mock_result = MagicMock()
-        mock_result.data = EvaluationResult(
+        mock_result.output = EvaluationResult(
             result="PASS", reasoning="Content passed evaluation"
         )
         mock_result.usage.return_value = MagicMock(
             request_tokens=10, response_tokens=5, total_tokens=15
         )
-        mock_result.model_name.return_value = "azure:gpt-4o"
+        mock_result.model_name = "azure:gpt-4o"
         mock_run_sync.return_value = mock_result
 
         with patch("pydantic_ai.Agent.__init__", return_value=None):
@@ -88,13 +88,13 @@ class TestAzureCallWithCredentials:
     def test_azure_call_with_entra_id(self, mock_run_sync: MagicMock) -> None:
         """Azure model can work with Entra ID (no API key)."""
         mock_result = MagicMock()
-        mock_result.data = EvaluationResult(
+        mock_result.output = EvaluationResult(
             result="PASS", reasoning="Content passed evaluation"
         )
         mock_result.usage.return_value = MagicMock(
             request_tokens=10, response_tokens=5, total_tokens=15
         )
-        mock_result.model_name.return_value = "azure:gpt-4o"
+        mock_result.model_name = "azure:gpt-4o"
         mock_run_sync.return_value = mock_result
 
         with patch("pydantic_ai.Agent.__init__", return_value=None):

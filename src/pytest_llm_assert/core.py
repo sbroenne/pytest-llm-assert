@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import os
 import re
 from dataclasses import dataclass
@@ -86,9 +85,10 @@ class LLMAssert:
         """Initialize LLM assertion helper.
 
         Args:
-            model: Pydantic AI model string (e.g., "openai:gpt-4o-mini", "azure:gpt-4o")
-                or a Model instance
-            api_key: API key (supports ${ENV_VAR} expansion). Optional for Azure Entra ID.
+            model: Pydantic AI model string (e.g., "openai:gpt-4o-mini",
+                "azure:gpt-4o") or a Model instance
+            api_key: API key (supports ${ENV_VAR} expansion).
+                Optional for Azure Entra ID.
             **kwargs: Additional parameters passed to Pydantic AI Agent
         """
         self.model_name = model if isinstance(model, str) else None
@@ -163,7 +163,7 @@ class LLMAssert:
         # Extract usage info from the result
         usage = result.usage()
         self.response = LLMResponse(
-            model=result.model_name(),
+            model=result.model_name,
             prompt_tokens=usage.request_tokens if usage else None,
             completion_tokens=usage.response_tokens if usage else None,
             total_tokens=usage.total_tokens if usage else None,
@@ -171,7 +171,7 @@ class LLMAssert:
         )
 
         # Extract pass/fail and reasoning from structured output
-        evaluation = result.data
+        evaluation = result.output
         passed = evaluation.result.upper() == "PASS"
 
         return AssertionResult(

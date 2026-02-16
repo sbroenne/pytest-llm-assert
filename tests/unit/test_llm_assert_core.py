@@ -61,11 +61,11 @@ class TestSystemPrompt:
     def test_prompt_used_in_agent(self, mock_run_sync: MagicMock) -> None:
         """Custom prompt should be used in agent."""
         mock_result = MagicMock()
-        mock_result.data = EvaluationResult(result="PASS", reasoning="Test")
+        mock_result.output = EvaluationResult(result="PASS", reasoning="Test")
         mock_result.usage.return_value = MagicMock(
             request_tokens=10, response_tokens=5, total_tokens=15
         )
-        mock_result.model_name.return_value = "openai:test-model"
+        mock_result.model_name = "openai:test-model"
         mock_run_sync.return_value = mock_result
 
         llm = LLMAssert(model="openai:test-model", api_key="test-key")
@@ -110,13 +110,13 @@ class TestLLMCall:
     @patch("pydantic_ai.Agent.run_sync")
     def test_pass_result(self, mock_run_sync: MagicMock) -> None:
         mock_result = MagicMock()
-        mock_result.data = EvaluationResult(
+        mock_result.output = EvaluationResult(
             result="PASS", reasoning="The content is a greeting."
         )
         mock_result.usage.return_value = MagicMock(
             request_tokens=10, response_tokens=5, total_tokens=15
         )
-        mock_result.model_name.return_value = "openai:test-model"
+        mock_result.model_name = "openai:test-model"
         mock_run_sync.return_value = mock_result
 
         llm = LLMAssert(model="openai:test-model", api_key="test-key")
@@ -129,11 +129,13 @@ class TestLLMCall:
     @patch("pydantic_ai.Agent.run_sync")
     def test_fail_result(self, mock_run_sync: MagicMock) -> None:
         mock_result = MagicMock()
-        mock_result.data = EvaluationResult(result="FAIL", reasoning="Not a greeting.")
+        mock_result.output = EvaluationResult(
+            result="FAIL", reasoning="Not a greeting."
+        )
         mock_result.usage.return_value = MagicMock(
             request_tokens=10, response_tokens=5, total_tokens=15
         )
-        mock_result.model_name.return_value = "openai:test-model"
+        mock_result.model_name = "openai:test-model"
         mock_run_sync.return_value = mock_result
 
         llm = LLMAssert(model="openai:test-model", api_key="test-key")
@@ -144,11 +146,11 @@ class TestLLMCall:
     @patch("pydantic_ai.Agent.run_sync")
     def test_content_preview_in_result(self, mock_run_sync: MagicMock) -> None:
         mock_result = MagicMock()
-        mock_result.data = EvaluationResult(result="PASS", reasoning="OK")
+        mock_result.output = EvaluationResult(result="PASS", reasoning="OK")
         mock_result.usage.return_value = MagicMock(
             request_tokens=10, response_tokens=5, total_tokens=15
         )
-        mock_result.model_name.return_value = "openai:test-model"
+        mock_result.model_name = "openai:test-model"
         mock_run_sync.return_value = mock_result
 
         llm = LLMAssert(model="openai:test-model", api_key="test-key")
@@ -161,11 +163,11 @@ class TestLLMCall:
         self, mock_run_sync: MagicMock
     ) -> None:
         mock_result = MagicMock()
-        mock_result.data = EvaluationResult(result="PASS", reasoning="OK")
+        mock_result.output = EvaluationResult(result="PASS", reasoning="OK")
         mock_result.usage.return_value = MagicMock(
             request_tokens=10, response_tokens=5, total_tokens=15
         )
-        mock_result.model_name.return_value = "openai:test-model"
+        mock_result.model_name = "openai:test-model"
         mock_run_sync.return_value = mock_result
 
         llm = LLMAssert(model="openai:test-model", api_key="test-key")

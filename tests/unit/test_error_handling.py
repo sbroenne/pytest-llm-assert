@@ -46,7 +46,6 @@ class TestResponseValidation:
     @patch("pydantic_ai.Agent.run_sync")
     def test_invalid_result_field_raises(self, mock_run_sync: MagicMock) -> None:
         """Invalid result field should raise validation error."""
-        mock_result = MagicMock()
         # Simulate pydantic validation error
         mock_run_sync.side_effect = ValueError("Invalid result value")
 
@@ -58,7 +57,6 @@ class TestResponseValidation:
     @patch("pydantic_ai.Agent.run_sync")
     def test_missing_reasoning_field_raises(self, mock_run_sync: MagicMock) -> None:
         """Missing reasoning field should raise validation error."""
-        mock_result = MagicMock()
         mock_run_sync.side_effect = ValueError("Missing required field: reasoning")
 
         llm = LLMAssert(model="openai:test-model", api_key="test-key")
@@ -70,13 +68,13 @@ class TestResponseValidation:
     def test_valid_response_format(self, mock_run_sync: MagicMock) -> None:
         """Valid EvaluationResult should be parsed correctly."""
         mock_result = MagicMock()
-        mock_result.data = EvaluationResult(
+        mock_result.output = EvaluationResult(
             result="PASS", reasoning="Content meets criteria"
         )
         mock_result.usage.return_value = MagicMock(
             request_tokens=10, response_tokens=5, total_tokens=15
         )
-        mock_result.model_name.return_value = "openai:test-model"
+        mock_result.model_name = "openai:test-model"
         mock_run_sync.return_value = mock_result
 
         llm = LLMAssert(model="openai:test-model", api_key="test-key")
