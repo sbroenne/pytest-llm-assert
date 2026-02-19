@@ -1,7 +1,10 @@
 """Integration tests for pytest-llm-assert with real LLM calls.
 
 These tests verify that LLM-powered assertions work correctly with actual models.
-Supports multiple providers: Azure OpenAI (Entra ID) and Google Vertex AI.
+Primary provider: OpenAI (configured by default).
+Additional providers available: Azure OpenAI, Google Gemini (see fixtures).
+
+To test with different providers, modify the llm fixture params list.
 
 Run with: pytest -m integration -v
 """
@@ -10,6 +13,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+
 import pytest
 
 
@@ -35,11 +39,14 @@ pytestmark = pytest.mark.integration
 # Provider Configuration (from environment)
 # =============================================================================
 
-# Azure deployment name (default: gpt-5-mini - fast and cheap)
-AZURE_DEPLOYMENT = os.environ.get("AZURE_OPENAI_DEPLOYMENT", "gpt-5-mini")
+# OpenAI model (default: gpt-4o-mini - fast and cheap)
+OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
 
-# Google Vertex AI model (default: gemini-2.0-flash - fast and capable)
-VERTEX_MODEL = os.environ.get("VERTEX_MODEL", "gemini-2.0-flash")
+# Azure deployment name (default: gpt-4o-mini - fast and cheap)
+AZURE_DEPLOYMENT = os.environ.get("AZURE_OPENAI_DEPLOYMENT", "gpt-4o-mini")
+
+# Google Gemini model (default: gemini-2.0-flash - fast and capable)
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.0-flash")
 
 
 # =============================================================================
@@ -48,59 +55,73 @@ VERTEX_MODEL = os.environ.get("VERTEX_MODEL", "gemini-2.0-flash")
 
 
 @pytest.fixture
-def azure_llm_factory():
-    """Factory to create LLMAssert for Azure OpenAI.
+def openai_llm_factory():
+    """Factory to create LLMAssert for OpenAI.
 
-    Uses Entra ID authentication automatically (via DefaultAzureCredential).
-    Requires: AZURE_OPENAI_ENDPOINT environment variable.
-    Auth: az login or managed identity - no API key needed.
+    Uses API key from OPENAI_API_KEY environment variable.
     """
     from pytest_llm_assert import LLMAssert
 
-    endpoint = os.environ["AZURE_OPENAI_ENDPOINT"]  # Fail if not set
+    if not os.environ.get("OPENAI_API_KEY"):
+        pytest.skip("OPENAI_API_KEY not set")
 
-    def create(deployment: str) -> LLMAssert:
-        # Entra ID auth is automatic when no api_key is provided
-        return LLMAssert(
-            model=f"azure/{deployment}",
-            api_base=endpoint,
-        )
+    def create(model: str) -> LLMAssert:
+        return LLMAssert(model=f"openai:{model}")
 
     return create
 
 
 @pytest.fixture
-def vertex_llm_factory():
-    """Factory to create LLMAssert for Google Vertex AI.
+def azure_llm_factory():
+    """Factory to create LLMAssert for Azure OpenAI.
 
-    Uses Application Default Credentials via LiteLLM.
-    Requires: GOOGLE_CLOUD_PROJECT, VERTEXAI_PROJECT, or GCP_PROJECT_ID env var.
-    Auth: gcloud auth application-default login.
+    Uses Entra ID authentication automatically via environment variables.
+    Requires: AZURE_OPENAI_ENDPOINT environment variable.
+    Auth: az login or managed identity - no API key needed.
     """
     from pytest_llm_assert import LLMAssert
 
-    # Ensure at least one project env var is set (fail fast if none)
-    if not (
-        os.environ.get("GOOGLE_CLOUD_PROJECT")
-        or os.environ.get("VERTEXAI_PROJECT")
-        or os.environ.get("GCP_PROJECT_ID")
+    endpoint = os.environ.get("AZURE_OPENAI_ENDPOINT")
+    if not endpoint:
+        pytest.skip("AZURE_OPENAI_ENDPOINT not set")
+
+    def create(deployment: str) -> LLMAssert:
+        # Entra ID auth is automatic via environment variables
+        return LLMAssert(model=f"azure:{deployment}")
+
+    return create
+
+
+@pytest.fixture
+def gemini_llm_factory():
+    """Factory to create LLMAssert for Google Gemini.
+
+    Uses Application Default Credentials via Pydantic AI.
+    Requires: GEMINI_API_KEY or Google Cloud credentials.
+    """
+    from pytest_llm_assert import LLMAssert
+
+    if not os.environ.get("GEMINI_API_KEY") and not os.environ.get(
+        "GOOGLE_APPLICATION_CREDENTIALS"
     ):
-        pytest.skip("No GCP project ID environment variable set")
+        pytest.skip("GEMINI_API_KEY or GOOGLE_APPLICATION_CREDENTIALS not set")
 
     def create(model: str) -> LLMAssert:
-        return LLMAssert(model=f"vertex_ai/{model}")
+        return LLMAssert(model=f"gemini:{model}")
 
     return create
 
 
 # Combined fixture for running same tests across providers
-@pytest.fixture(params=["azure", "vertex"])
-def llm(request, azure_llm_factory, vertex_llm_factory):
-    """LLM instance that cycles through available providers."""
-    if request.param == "azure":
-        return azure_llm_factory(AZURE_DEPLOYMENT)
-    elif request.param == "vertex":
-        return vertex_llm_factory(VERTEX_MODEL)
+@pytest.fixture(params=["openai"])
+def llm(request, openai_llm_factory):
+    """LLM instance that cycles through available providers.
+
+    Default is OpenAI only for quick testing.
+    Can be extended to include azure and gemini when those credentials are available.
+    """
+    if request.param == "openai":
+        return openai_llm_factory(OPENAI_MODEL)
     else:
         msg = f"Unknown provider: {request.param}"
         raise ValueError(msg)

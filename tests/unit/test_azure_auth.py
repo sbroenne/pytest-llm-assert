@@ -1,176 +1,107 @@
-"""Tests for Azure authentication in LLMAssert."""
+"""Tests for Azure model support in LLMAssert.
+
+With Pydantic AI, Azure authentication is handled automatically via
+environment variables (AZURE_OPENAI_ENDPOINT, OPENAI_API_KEY, etc.)
+and Entra ID credentials.
+"""
+
+from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
-from pytest_llm_assert.core import LLMAssert
+from pytest_llm_assert.core import EvaluationResult, LLMAssert
 
 
-class TestAzureModelDetection:
-    """Detection of Azure OpenAI models."""
+class TestAzureModelNaming:
+    """Azure model naming with pydantic-ai format."""
 
-    def test_azure_model_detected(self) -> None:
-        llm = LLMAssert(model="azure/gpt-4o")
-        assert llm._is_azure_model() is True
+    @patch("pydantic_ai.Agent.__init__", return_value=None)
+    def test_azure_model_format(self, mock_agent_init: MagicMock) -> None:
+        """Azure models should use 'azure:' prefix."""
+        llm = LLMAssert(model="azure:gpt-4o", api_key="test-key")
+        assert llm.model_name == "azure:gpt-4o"
 
-    def test_openai_model_not_azure(self) -> None:
-        llm = LLMAssert(model="openai/gpt-5-mini")
-        assert llm._is_azure_model() is False
+    @patch("pydantic_ai.Agent.__init__", return_value=None)
+    def test_openai_model_format(self, mock_agent_init: MagicMock) -> None:
+        """OpenAI models should use 'openai:' prefix."""
+        llm = LLMAssert(model="openai:gpt-4o-mini", api_key="test-key")
+        assert llm.model_name == "openai:gpt-4o-mini"
 
-    def test_anthropic_model_not_azure(self) -> None:
-        llm = LLMAssert(model="anthropic/claude-3")
-        assert llm._is_azure_model() is False
-
-
-class TestAzureApiKeyDetection:
-    """Detection of Azure API key availability."""
-
-    def test_no_key_returns_false(self) -> None:
-        with patch.dict("os.environ", {}, clear=True):
-            llm = LLMAssert(model="azure/gpt-4o")
-            # Remove any key that might have been set
-            llm.api_key = None
-            assert llm._has_azure_api_key() is False
-
-    def test_instance_key_returns_true(self) -> None:
-        llm = LLMAssert(model="azure/gpt-4o", api_key="test-key")
-        assert llm._has_azure_api_key() is True
-
-    def test_env_key_returns_true(self) -> None:
-        with patch.dict("os.environ", {"AZURE_API_KEY": "env-key"}):
-            llm = LLMAssert(model="azure/gpt-4o")
-            llm.api_key = None  # Ensure not using instance key
-            assert llm._has_azure_api_key() is True
+    @patch("pydantic_ai.Agent.__init__", return_value=None)
+    def test_anthropic_model_format(self, mock_agent_init: MagicMock) -> None:
+        """Anthropic models should use 'anthropic:' prefix."""
+        llm = LLMAssert(model="anthropic:claude-3-sonnet", api_key="test-key")
+        assert llm.model_name == "anthropic:claude-3-sonnet"
 
 
-class TestAzureAdTokenProvider:
-    """Azure AD token provider for Entra ID auth."""
+class TestAzureEnvironmentVariables:
+    """Azure requires specific environment variables."""
 
-    def test_returns_provider_when_available(self) -> None:
-        from pytest_llm_assert.core import _get_azure_ad_token_provider
+    @patch("pydantic_ai.Agent.__init__", return_value=None)
+    def test_azure_api_key_from_env(self, mock_agent_init: MagicMock) -> None:
+        """API key can be set via environment or constructor."""
+        with patch.dict("os.environ", {"OPENAI_API_KEY": "env-key"}):
+            llm = LLMAssert(model="azure:gpt-4o", api_key="test-key")
+            # API key is stored in the instance
+            assert llm.api_key == "test-key"
 
-        mock_provider = MagicMock()
-        with patch(
-            "pytest_llm_assert.core._get_azure_ad_token_provider",
-            return_value=mock_provider,
-        ):
-            with patch.dict("os.environ", {}, clear=True):
-                # Clear AZURE_API_KEY to trigger Entra ID auth
-                llm = LLMAssert.__new__(LLMAssert)
-                llm.model = "azure/gpt-4o"
-                llm.api_key = None
-                llm.api_base = None
-                llm.kwargs = {}
-                llm._system_prompt = "test"
-                llm.response = None
-                llm._azure_ad_token_provider = None
+    @patch("pydantic_ai.Agent.__init__", return_value=None)
+    def test_azure_api_key_from_constructor(self, mock_agent_init: MagicMock) -> None:
+        """API key can be passed to constructor."""
+        llm = LLMAssert(model="azure:gpt-4o", api_key="test-key")
+        assert llm.api_key == "test-key"
 
-                # Manually trigger the check
-                if llm._is_azure_model() and not llm._has_azure_api_key():
-                    llm._azure_ad_token_provider = _get_azure_ad_token_provider()
-
-    def test_returns_none_on_import_error(self) -> None:
-        with patch("pytest_llm_assert.core._get_azure_ad_token_provider") as mock:
-            # Simulate the actual function behavior on ImportError
-            mock.return_value = None
-            result = mock()
-            assert result is None
-
-    def test_returns_none_on_credential_exception(self) -> None:
-        """Test that generic exceptions in credential retrieval return None."""
-        from pytest_llm_assert.core import _get_azure_ad_token_provider
-
-        # Clear the cache to ensure fresh execution
-        _get_azure_ad_token_provider.cache_clear()
-        with patch(
-            "litellm.secret_managers.get_azure_ad_token_provider.get_azure_ad_token_provider",
-            side_effect=Exception("Credential not available"),
-        ):
-            result = _get_azure_ad_token_provider()
-            assert result is None
-        # Clear cache after test to not affect other tests
-        _get_azure_ad_token_provider.cache_clear()
-
-    def test_actual_provider_import_error(self) -> None:
-        """Test the actual _get_azure_ad_token_provider with import failure."""
-        from pytest_llm_assert.core import _get_azure_ad_token_provider
-
-        # Clear the cache to ensure fresh execution
-        _get_azure_ad_token_provider.cache_clear()
+    @patch("pydantic_ai.Agent.__init__", return_value=None)
+    def test_azure_endpoint_via_env(self, mock_agent_init: MagicMock) -> None:
+        """Azure endpoint should be set via AZURE_OPENAI_ENDPOINT."""
         with patch.dict(
-            "sys.modules", {"litellm.secret_managers.get_azure_ad_token_provider": None}
+            "os.environ", {"AZURE_OPENAI_ENDPOINT": "https://test.openai.azure.com"}
         ):
-            with patch(
-                "litellm.secret_managers.get_azure_ad_token_provider.get_azure_ad_token_provider",
-                side_effect=ImportError("Module not found"),
-            ):
-                # The actual function should catch ImportError and return None
-                # Result could be None or a real provider depending on environment
-                # We're testing it doesn't raise
-                _get_azure_ad_token_provider()
-        # Clear cache after test to not affect other tests
-        _get_azure_ad_token_provider.cache_clear()
+            # Constructor should not fail with proper env setup
+            llm = LLMAssert(model="azure:gpt-4o", api_key="test-key")
+            assert llm.model_name == "azure:gpt-4o"
 
 
-class TestAzureInitialization:
-    """Azure model initialization with Entra ID."""
+class TestAzureCallWithCredentials:
+    """Azure model calls with credentials."""
 
-    def test_azure_without_key_gets_token_provider(self) -> None:
-        """Azure model without API key should attempt to get token provider."""
-        from pytest_llm_assert.core import _get_azure_ad_token_provider
+    @patch("pydantic_ai.Agent.run_sync")
+    def test_azure_call_with_api_key(self, mock_run_sync: MagicMock) -> None:
+        """Azure model should work with API key."""
+        mock_result = MagicMock()
+        mock_result.output = EvaluationResult(
+            result="PASS", reasoning="Content passed evaluation"
+        )
+        mock_result.usage.return_value = MagicMock(
+            request_tokens=10, response_tokens=5, total_tokens=15
+        )
+        mock_result.model_name = "azure:gpt-4o"
+        mock_run_sync.return_value = mock_result
 
-        _get_azure_ad_token_provider.cache_clear()
-        with patch.dict("os.environ", {}, clear=True):
-            with patch(
-                "pytest_llm_assert.core._get_azure_ad_token_provider",
-                return_value=lambda: "mock-token",
-            ) as mock_get_provider:
-                LLMAssert(
-                    model="azure/gpt-4o", api_base="https://test.openai.azure.com"
-                )
-                mock_get_provider.assert_called_once()
-        _get_azure_ad_token_provider.cache_clear()
+        with patch("pydantic_ai.Agent.__init__", return_value=None):
+            llm = LLMAssert(model="azure:gpt-4o", api_key="test-key")
+            llm._agent = MagicMock()
+            llm._agent.run_sync = mock_run_sync
+            result = llm("Test content", "Is this valid?")
 
-    def test_azure_with_key_skips_token_provider(self) -> None:
-        """Azure model with API key should not attempt Entra ID."""
-        with patch(
-            "pytest_llm_assert.core._get_azure_ad_token_provider"
-        ) as mock_get_provider:
-            LLMAssert(
-                model="azure/gpt-4o",
-                api_key="test-key",
-                api_base="https://test.openai.azure.com",
-            )
-            mock_get_provider.assert_not_called()
+            assert result.passed is True
 
-    def test_non_azure_skips_token_provider(self) -> None:
-        """Non-Azure models should not attempt Entra ID."""
-        with patch(
-            "pytest_llm_assert.core._get_azure_ad_token_provider"
-        ) as mock_get_provider:
-            LLMAssert(model="openai/gpt-5-mini")
-            mock_get_provider.assert_not_called()
+    @patch("pydantic_ai.Agent.run_sync")
+    def test_azure_call_with_entra_id(self, mock_run_sync: MagicMock) -> None:
+        """Azure model can work with Entra ID (no API key)."""
+        mock_result = MagicMock()
+        mock_result.output = EvaluationResult(
+            result="PASS", reasoning="Content passed evaluation"
+        )
+        mock_result.usage.return_value = MagicMock(
+            request_tokens=10, response_tokens=5, total_tokens=15
+        )
+        mock_result.model_name = "azure:gpt-4o"
+        mock_run_sync.return_value = mock_result
 
-
-class TestAzureTokenProviderInCall:
-    """Azure AD token provider usage in LLM calls."""
-
-    @patch("pytest_llm_assert.core.litellm.completion")
-    def test_token_provider_passed_to_litellm(self, mock_completion: MagicMock) -> None:
-        """When token provider is set, it should be passed to litellm."""
-        mock_response = MagicMock()
-        mock_response.choices = [MagicMock()]
-        mock_response.choices[0].message.content = "PASS"
-        mock_completion.return_value = mock_response
-
-        # Create LLM and manually set token provider
-        llm = LLMAssert(model="azure/gpt-4o", api_base="https://test.openai.azure.com")
-        mock_token_provider = MagicMock(return_value="mock-token")
-        llm._azure_ad_token_provider = mock_token_provider
-
-        # Make a call
-        llm("content", "criterion")
-
-        # Verify token provider was passed
-        call_kwargs = mock_completion.call_args.kwargs
-        assert "azure_ad_token_provider" in call_kwargs
-        assert call_kwargs["azure_ad_token_provider"] == mock_token_provider
+        with patch("pydantic_ai.Agent.__init__", return_value=None):
+            llm = LLMAssert(model="azure:gpt-4o")
+            llm._agent = MagicMock()
+            llm._agent.run_sync = mock_run_sync
+            result = llm("Test content", "Is this valid?")
+            assert result.passed is True

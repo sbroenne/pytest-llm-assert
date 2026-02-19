@@ -65,7 +65,7 @@ Works out of the box with cloud identity — no API keys to manage:
 
 ```bash
 # Azure (Entra ID)
-export AZURE_API_BASE=https://your-resource.openai.azure.com
+export AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com
 az login
 
 # Google Cloud (Vertex AI)
@@ -79,17 +79,14 @@ Supports multiple providers via [Pydantic AI](https://ai.pydantic.dev/) — incl
 
 ## Documentation
 
-- **[Documentation](https://sbroenne.github.io/pytest-llm-assert)** — Full documentation with examples
-- **[Configuration](https://sbroenne.github.io/pytest-llm-assert/configuration/)** — All providers, CLI options, environment variables
-- **[API Reference](https://sbroenne.github.io/pytest-llm-assert/api-reference/)** — Full API documentation
-- **[Comparing Judge Models](https://sbroenne.github.io/pytest-llm-assert/comparing-models/)** — Evaluate which LLM works best for your assertions
-- **[Examples](examples/)** — Working pytest examples
-- **[Integration Tests](docs/INTEGRATION_TESTS.md)** — Running tests with real LLM APIs
+- **[Configuration](configuration.md)** — All providers, CLI options, environment variables
+- **[API Reference](api-reference.md)** — Full API documentation
+- **[Comparing Judge Models](comparing-models.md)** — Evaluate which LLM works best for your assertions
 
 ## Related
 
 - **[pytest-aitest](https://github.com/sbroenne/pytest-aitest)** — Full framework for testing MCP servers, CLIs, and AI agents
-- **[Contributing](CONTRIBUTING.md)** — Development setup and guidelines
+- **[Contributing](https://github.com/sbroenne/pytest-llm-assert/blob/main/CONTRIBUTING.md)** — Development setup and guidelines
 
 ## Requirements
 
