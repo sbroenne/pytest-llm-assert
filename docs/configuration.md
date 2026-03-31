@@ -56,7 +56,7 @@ def llm():
 
 ## Custom System Prompt
 
-The default system prompt is in [`src/pytest_llm_assert/prompts/system_prompt.md`](../src/pytest_llm_assert/prompts/system_prompt.md).
+The default system prompt is in [`src/pytest_llm_assert/prompts/system_prompt.md`](https://github.com/sbroenne/pytest-llm-assert/blob/main/src/pytest_llm_assert/prompts/system_prompt.md).
 
 Override it at runtime for domain-specific assertions:
 

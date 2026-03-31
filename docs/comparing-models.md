@@ -4,7 +4,7 @@ Not sure which LLM to use as your assertion judge? Different models have differe
 
 ## Example
 
-See [`examples/test_compare_models.py`](../examples/test_compare_models.py) for a working example that compares Azure OpenAI and Vertex AI.
+See [`examples/test_compare_models.py`](https://github.com/sbroenne/pytest-llm-assert/blob/main/examples/test_compare_models.py) for a working example that compares Azure OpenAI and Vertex AI.
 
 Run it with:
 ```bash
