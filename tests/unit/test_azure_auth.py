@@ -2,6 +2,7 @@
 
 from unittest.mock import MagicMock, patch
 
+from pytest_llm_assert import core
 from pytest_llm_assert.core import LLMAssert
 
 
@@ -47,8 +48,10 @@ class TestAzureAdTokenProvider:
 
     def test_returns_provider_when_available(self) -> None:
         mock_provider = MagicMock()
+        # Clear cache before patching
+        core._get_azure_ad_token_provider.cache_clear()
         with patch(
-            "pytest_llm_assert.core.LLMAssert._get_azure_ad_token_provider",
+            "pytest_llm_assert.core._get_azure_ad_token_provider",
             return_value=mock_provider,
         ):
             with patch.dict("os.environ", {}, clear=True):
@@ -64,14 +67,12 @@ class TestAzureAdTokenProvider:
 
                 # Manually trigger the check
                 if llm._is_azure_model() and not llm._has_azure_api_key():
-                    llm._azure_ad_token_provider = (
-                        LLMAssert._get_azure_ad_token_provider()
-                    )
+                    llm._azure_ad_token_provider = core._get_azure_ad_token_provider()
 
     def test_returns_none_on_import_error(self) -> None:
-        with patch(
-            "pytest_llm_assert.core.LLMAssert._get_azure_ad_token_provider"
-        ) as mock:
+        # Clear cache before patching
+        core._get_azure_ad_token_provider.cache_clear()
+        with patch("pytest_llm_assert.core._get_azure_ad_token_provider") as mock:
             # Simulate the actual method behavior on ImportError
             mock.return_value = None
             result = mock()
@@ -79,15 +80,19 @@ class TestAzureAdTokenProvider:
 
     def test_returns_none_on_credential_exception(self) -> None:
         """Test that generic exceptions in credential retrieval return None."""
+        # Clear cache before testing
+        core._get_azure_ad_token_provider.cache_clear()
         with patch(
             "litellm.secret_managers.get_azure_ad_token_provider.get_azure_ad_token_provider",
             side_effect=Exception("Credential not available"),
         ):
-            result = LLMAssert._get_azure_ad_token_provider()
+            result = core._get_azure_ad_token_provider()
             assert result is None
 
     def test_actual_provider_import_error(self) -> None:
         """Test the actual _get_azure_ad_token_provider with import failure."""
+        # Clear cache before testing
+        core._get_azure_ad_token_provider.cache_clear()
         with patch.dict(
             "sys.modules", {"litellm.secret_managers.get_azure_ad_token_provider": None}
         ):
@@ -98,7 +103,7 @@ class TestAzureAdTokenProvider:
                 # The actual method should catch ImportError and return None
                 # Result could be None or a real provider depending on environment
                 # We're testing it doesn't raise
-                LLMAssert._get_azure_ad_token_provider()
+                core._get_azure_ad_token_provider()
 
 
 class TestAzureInitialization:
@@ -106,10 +111,11 @@ class TestAzureInitialization:
 
     def test_azure_without_key_gets_token_provider(self) -> None:
         """Azure model without API key should attempt to get token provider."""
+        # Clear cache before patching
+        core._get_azure_ad_token_provider.cache_clear()
         with patch.dict("os.environ", {}, clear=True):
-            with patch.object(
-                LLMAssert,
-                "_get_azure_ad_token_provider",
+            with patch(
+                "pytest_llm_assert.core._get_azure_ad_token_provider",
                 return_value=lambda: "mock-token",
             ) as mock_get_provider:
                 LLMAssert(
@@ -119,8 +125,10 @@ class TestAzureInitialization:
 
     def test_azure_with_key_skips_token_provider(self) -> None:
         """Azure model with API key should not attempt Entra ID."""
-        with patch.object(
-            LLMAssert, "_get_azure_ad_token_provider"
+        # Clear cache before patching
+        core._get_azure_ad_token_provider.cache_clear()
+        with patch(
+            "pytest_llm_assert.core._get_azure_ad_token_provider"
         ) as mock_get_provider:
             LLMAssert(
                 model="azure/gpt-4o",
@@ -131,8 +139,10 @@ class TestAzureInitialization:
 
     def test_non_azure_skips_token_provider(self) -> None:
         """Non-Azure models should not attempt Entra ID."""
-        with patch.object(
-            LLMAssert, "_get_azure_ad_token_provider"
+        # Clear cache before patching
+        core._get_azure_ad_token_provider.cache_clear()
+        with patch(
+            "pytest_llm_assert.core._get_azure_ad_token_provider"
         ) as mock_get_provider:
             LLMAssert(model="openai/gpt-5-mini")
             mock_get_provider.assert_not_called()
