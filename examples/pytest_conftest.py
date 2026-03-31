@@ -7,7 +7,7 @@ Usage:
     pytest tests/
 
     # Run with specific model
-    pytest tests/ --llm-model=anthropic/claude-sonnet-4-20250514
+    pytest tests/ --llm-model=anthropic:claude-3-5-sonnet-latest
 
     # Compare multiple models
     pytest tests/ -k "test_my_feature"  # with parametrized fixture
@@ -26,20 +26,19 @@ from pytest_llm_assert import LLMAssert
 def llm(request):
     """LLM assertion helper with CLI configuration.
 
-    Uses --llm-model, --llm-api-key, --llm-api-base from CLI.
+    Uses --llm-model and --llm-api-key from CLI.
     """
     return LLMAssert(
-        model=request.config.getoption("--llm-model", "openai/gpt-5-mini"),
+        model=request.config.getoption("--llm-model", "openai:gpt-4o-mini"),
         api_key=request.config.getoption("--llm-api-key"),
-        api_base=request.config.getoption("--llm-api-base"),
     )
 
 
 # Option 2: Parametrized fixture for comparing models
 MODELS_TO_TEST = [
-    "openai/gpt-5-mini",
-    # "anthropic/claude-sonnet-4-20250514",
-    # "ollama/llama3",
+    "openai:gpt-4o-mini",
+    # "anthropic:claude-3-5-sonnet-latest",
+    # "gemini:gemini-2.0-flash",
 ]
 
 
@@ -48,8 +47,8 @@ def llm_multi(request):
     """Parametrized fixture that runs tests against multiple models.
 
     Test output will show which model(s) passed/failed:
-        test_example[openai/gpt-5-mini] PASSED
-        test_example[anthropic/claude-sonnet-4-20250514] FAILED
+        test_example[openai:gpt-4o-mini] PASSED
+        test_example[anthropic:claude-3-5-sonnet-latest] FAILED
     """
     return LLMAssert(model=request.param)
 
@@ -60,49 +59,32 @@ def llm_azure():
     """LLM assertion helper for Azure OpenAI with Entra ID.
 
     Requires:
-        pip install pytest-llm-assert[azure]
         export AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com
+        az login
     """
-    from azure.identity import DefaultAzureCredential
-
     endpoint = os.environ.get("AZURE_OPENAI_ENDPOINT")
     if not endpoint:
         pytest.skip("AZURE_OPENAI_ENDPOINT not set")
 
-    credential = DefaultAzureCredential()
-    token = credential.get_token("https://cognitiveservices.azure.com/.default").token
-
-    return LLMAssert(
-        model="azure/gpt-5-mini",  # Your deployment name
-        api_base=endpoint,
-        api_key=token,
-    )
+    return LLMAssert(model="azure:gpt-4o")
 
 
-# Option 4: Google Vertex AI
+# Option 4: Google Gemini
 @pytest.fixture
-def llm_vertex():
-    """LLM assertion helper for Google Vertex AI.
+def llm_gemini():
+    """LLM assertion helper for Google Gemini.
 
     Requires:
+        export GEMINI_API_KEY=your-api-key
+        # or use Google Cloud credentials
         gcloud auth application-default login
-        export GCP_PROJECT_ID=your-project-id  # or GOOGLE_CLOUD_PROJECT
     """
-    project = os.environ.get("GOOGLE_CLOUD_PROJECT") or os.environ.get("GCP_PROJECT_ID")
-    location = (
-        os.environ.get("GOOGLE_CLOUD_LOCATION")
-        or os.environ.get("GCP_LOCATION")
-        or "us-central1"
-    )
+    if not os.environ.get("GEMINI_API_KEY") and not os.environ.get(
+        "GOOGLE_APPLICATION_CREDENTIALS"
+    ):
+        pytest.skip("GEMINI_API_KEY or GOOGLE_APPLICATION_CREDENTIALS not set")
 
-    if not project:
-        pytest.skip("GCP_PROJECT_ID or GOOGLE_CLOUD_PROJECT not set")
-
-    return LLMAssert(
-        model="vertex_ai/gemini-2.0-flash",
-        vertex_project=project,
-        vertex_location=location,
-    )
+    return LLMAssert(model="gemini:gemini-2.0-flash")
 
 
 # Example test using the fixtures

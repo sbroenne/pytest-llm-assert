@@ -6,8 +6,8 @@ This shows how to run the same tests against multiple models to compare
 their semantic understanding capabilities.
 
 Output looks like:
-    test_understands_sarcasm[azure] PASSED
-    test_understands_sarcasm[vertex] PASSED
+    test_understands_sarcasm[openai] PASSED
+    test_understands_sarcasm[anthropic] PASSED
 """
 
 import os
@@ -17,45 +17,40 @@ import pytest
 from pytest_llm_assert import LLMAssert
 
 
+def _get_openai_llm():
+    """Create OpenAI LLM if API key is set."""
+    if not os.environ.get("OPENAI_API_KEY"):
+        pytest.skip("OPENAI_API_KEY not set")
+    return LLMAssert(model="openai:gpt-4o-mini")
+
+
+def _get_anthropic_llm():
+    """Create Anthropic LLM if API key is set."""
+    if not os.environ.get("ANTHROPIC_API_KEY"):
+        pytest.skip("ANTHROPIC_API_KEY not set")
+    return LLMAssert(model="anthropic:claude-3-5-sonnet-latest")
+
+
 def _get_azure_llm():
     """Create Azure OpenAI LLM if configured."""
     endpoint = os.environ.get("AZURE_OPENAI_ENDPOINT")
-    deployment = os.environ.get("AZURE_OPENAI_DEPLOYMENT", "gpt-5-mini")
     if not endpoint:
         pytest.skip("AZURE_OPENAI_ENDPOINT not set")
-
-    from azure.identity import DefaultAzureCredential
-
-    credential = DefaultAzureCredential()
-    token = credential.get_token("https://cognitiveservices.azure.com/.default").token
-
-    return LLMAssert(model=f"azure/{deployment}", api_base=endpoint, api_key=token)
+    return LLMAssert(model="azure:gpt-4o")
 
 
-def _get_vertex_llm():
-    """Create Vertex AI LLM if configured."""
-    project = os.environ.get("GOOGLE_CLOUD_PROJECT") or os.environ.get("GCP_PROJECT_ID")
-    location = (
-        os.environ.get("GOOGLE_CLOUD_LOCATION")
-        or os.environ.get("GCP_LOCATION")
-        or "us-central1"
-    )
-    model = os.environ.get("VERTEX_MODEL", "gemini-2.0-flash")
-    if not project:
-        pytest.skip("GCP_PROJECT_ID not set")
-
-    return LLMAssert(
-        model=f"vertex_ai/{model}", vertex_project=project, vertex_location=location
-    )
-
-
-@pytest.fixture(params=["azure", "vertex"])
+@pytest.fixture(params=["openai", "anthropic", "azure"])
 def llm(request):
     """Parametrized fixture that runs tests against each configured provider."""
-    if request.param == "azure":
+    if request.param == "openai":
+        return _get_openai_llm()
+    elif request.param == "anthropic":
+        return _get_anthropic_llm()
+    elif request.param == "azure":
         return _get_azure_llm()
-    elif request.param == "vertex":
-        return _get_vertex_llm()
+    else:
+        msg = f"Unknown provider: {request.param}"
+        raise ValueError(msg)
 
 
 class TestModelComparison:

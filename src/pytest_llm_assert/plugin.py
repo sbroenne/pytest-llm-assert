@@ -12,18 +12,13 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     group = parser.getgroup("llm-assert", "LLM-powered assertions")
     group.addoption(
         "--llm-model",
-        default="openai/gpt-5-mini",
-        help="Default LiteLLM model for assertions (default: openai/gpt-5-mini)",
+        default="openai:gpt-4o-mini",
+        help="Default Pydantic AI model for assertions (default: openai:gpt-4o-mini)",
     )
     group.addoption(
         "--llm-api-key",
         default=None,
         help="API key for LLM provider (supports ${ENV_VAR} expansion)",
-    )
-    group.addoption(
-        "--llm-api-base",
-        default=None,
-        help="Custom API base URL for LLM provider",
     )
 
 
@@ -39,5 +34,4 @@ def llm_assert(request: pytest.FixtureRequest) -> LLMAssert:
     return LLMAssert(
         model=request.config.getoption("--llm-model"),
         api_key=request.config.getoption("--llm-api-key"),
-        api_base=request.config.getoption("--llm-api-base"),
     )

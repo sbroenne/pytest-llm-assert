@@ -2,15 +2,15 @@
 
 from __future__ import annotations
 
-import functools
-import json
 import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING
 
-import litellm
+from pydantic import BaseModel
+from pydantic_ai import Agent
+from pydantic_ai.models import KnownModelName, Model
 
 # Load default system prompt from file
 _PROMPTS_DIR = Path(__file__).parent / "prompts"
@@ -20,25 +20,11 @@ if TYPE_CHECKING:
     from typing import Any
 
 
-@functools.cache
-def _get_azure_ad_token_provider() -> Callable[[], str] | None:
-    """Get Azure AD token provider for Entra ID authentication.
+class EvaluationResult(BaseModel):
+    """Structured output from LLM evaluation."""
 
-    Uses LiteLLM's built-in helper which leverages DefaultAzureCredential.
-    Cached at module level to avoid recreating credentials on each call.
-    """
-    try:
-        from litellm.secret_managers.get_azure_ad_token_provider import (
-            get_azure_ad_token_provider,
-        )
-
-        return get_azure_ad_token_provider()
-    except ImportError:
-        # azure-identity not installed
-        return None
-    except Exception:
-        # Credential not available
-        return None
+    result: str  # "PASS" or "FAIL"
+    reasoning: str
 
 
 @dataclass(slots=True)
@@ -82,48 +68,49 @@ class LLMAssert:
     """LLM-powered assertions for semantic evaluation.
 
     Example:
-        >>> llm = LLMAssert(model="openai/gpt-5-mini")
+        >>> llm = LLMAssert(model="openai:gpt-4o-mini")
         >>> assert llm("Hello world", "Is this a greeting?")
 
-    For Azure OpenAI with Entra ID, just use `az login` - no API key needed:
-        >>> llm = LLMAssert(model="azure/gpt-4o", api_base="https://your-resource.openai.azure.com")
+    For Azure OpenAI with Entra ID authentication via environment variables:
+        >>> # Set AZURE_OPENAI_ENDPOINT and authenticate via az login
+        >>> llm = LLMAssert(model="azure:gpt-4o")
     """
 
     def __init__(
         self,
-        model: str = "openai/gpt-5-mini",
+        model: str | KnownModelName | Model = "openai:gpt-4o-mini",
         api_key: str | None = None,
-        api_base: str | None = None,
         **kwargs: Any,
     ) -> None:
         """Initialize LLM assertion helper.
 
         Args:
-            model: LiteLLM model string (e.g., "openai/gpt-5-mini", "azure/gpt-4o")
+            model: Pydantic AI model string (e.g., "openai:gpt-4o-mini",
+                "azure:gpt-4o") or a Model instance
             api_key: API key (supports ${ENV_VAR} expansion).
-                For Azure, leave empty to use Entra ID.
-            api_base: Custom API base URL (required for Azure)
-            **kwargs: Additional parameters passed to LiteLLM
+                Optional for Azure Entra ID.
+            **kwargs: Additional parameters passed to Pydantic AI Agent
         """
-        self.model = model
+        self.model_name = model if isinstance(model, str) else None
         self.api_key = self._expand_env(api_key) if api_key else None
-        self.api_base = api_base
         self.kwargs = kwargs
-        self._azure_ad_token_provider: Callable[[], str] | None = None
         self._system_prompt: str = _DEFAULT_SYSTEM_PROMPT
         self.response: LLMResponse | None = None
 
-        # Auto-configure Azure Entra ID when no API key is provided
-        if self._is_azure_model() and not self._has_azure_api_key():
-            self._azure_ad_token_provider = _get_azure_ad_token_provider()
+        # Set up environment variables for API key if provided
+        if self.api_key:
+            if isinstance(model, str):
+                if model.startswith("openai:") or model.startswith("azure:"):
+                    os.environ.setdefault("OPENAI_API_KEY", self.api_key)
+                elif model.startswith("anthropic:"):
+                    os.environ.setdefault("ANTHROPIC_API_KEY", self.api_key)
 
-    def _is_azure_model(self) -> bool:
-        """Check if the model is an Azure OpenAI model."""
-        return self.model.startswith("azure/")
-
-    def _has_azure_api_key(self) -> bool:
-        """Check if an Azure API key is available."""
-        return bool(self.api_key or os.environ.get("AZURE_API_KEY"))
+        # Create the agent with structured output
+        self._agent = Agent(
+            model,
+            output_type=EvaluationResult,
+            system_prompt=self._system_prompt,
+        )
 
     @property
     def system_prompt(self) -> str:
@@ -138,6 +125,12 @@ class LLMAssert:
         and respond in JSON format with 'result' (PASS/FAIL) and 'reasoning' keys.
         """
         self._system_prompt = value
+        # Recreate agent with new system prompt
+        self._agent = Agent(
+            self.model_name or self._agent.model,
+            output_type=EvaluationResult,
+            system_prompt=self._system_prompt,
+        )
 
     @staticmethod
     def _expand_env(value: str) -> str:
@@ -152,43 +145,6 @@ class LLMAssert:
             return text
         return text[: max_len - 3] + "..."
 
-    def _call_llm(self, messages: list[dict[str, str]]) -> str:
-        """Call the LLM and return response content. Updates self.response."""
-        kwargs = {**self.kwargs}
-
-        # Use Azure AD token provider if configured (Entra ID auth)
-        if self._azure_ad_token_provider is not None:
-            kwargs["azure_ad_token_provider"] = self._azure_ad_token_provider
-
-        response = litellm.completion(
-            model=self.model,
-            messages=messages,
-            api_key=self.api_key,
-            api_base=self.api_base,
-            **kwargs,
-        )
-        content = response.choices[0].message.content or ""  # type: ignore[union-attr]
-
-        # Store response details on instance
-        self.response = LLMResponse(
-            model=getattr(response, "model", None),
-            response_id=getattr(response, "id", None),
-            created=getattr(response, "created", None),
-        )
-
-        # Extract usage info
-        usage = getattr(response, "usage", None)
-        if usage:
-            self.response.prompt_tokens = getattr(usage, "prompt_tokens", None)
-            self.response.completion_tokens = getattr(usage, "completion_tokens", None)
-            self.response.total_tokens = getattr(usage, "total_tokens", None)
-
-        # Extract cost from hidden params (litellm calculates this)
-        if hasattr(response, "_hidden_params"):
-            self.response.cost = response._hidden_params.get("response_cost")
-
-        return content
-
     def __call__(self, content: str, criterion: str) -> AssertionResult:
         """Evaluate if content meets the given criterion.
 
@@ -199,40 +155,28 @@ class LLMAssert:
         Returns:
             AssertionResult that is truthy if criterion is met
         """
-        messages = [
-            {
-                "role": "system",
-                "content": self._system_prompt,
-            },
-            {
-                "role": "user",
-                "content": f"Criterion: {criterion}\n\nContent:\n{content}",
-            },
-        ]
+        user_message = f"Criterion: {criterion}\n\nContent:\n{content}"
 
-        response_text = self._call_llm(messages)
+        # Run the agent synchronously
+        result = self._agent.run_sync(user_message)
 
-        # Parse JSON response
-        try:
-            # Handle potential markdown code blocks
-            text = response_text.strip()
-            if text.startswith("```"):
-                text = text.split("```")[1]
-                if text.startswith("json"):
-                    text = text[4:]
-            data = json.loads(text.strip())
-            passed = data.get("result", "").upper() == "PASS"
-            reasoning = data.get("reasoning", "")
-        except (json.JSONDecodeError, AttributeError):
-            # Fallback to line-based parsing
-            lines = response_text.strip().split("\n", 1)
-            first_line = lines[0].strip().upper()
-            passed = first_line in ("PASS", "YES", "TRUE", "PASSED")
-            reasoning = lines[1].strip() if len(lines) > 1 else response_text
+        # Extract usage info from the result
+        usage = result.usage()
+        self.response = LLMResponse(
+            model=result.model_name,  # type: ignore[attr-defined]
+            prompt_tokens=usage.request_tokens if usage else None,
+            completion_tokens=usage.response_tokens if usage else None,
+            total_tokens=usage.total_tokens if usage else None,
+            cost=None,  # Pydantic AI doesn't provide cost info directly
+        )
+
+        # Extract pass/fail and reasoning from structured output
+        evaluation = result.output
+        passed = evaluation.result.upper() == "PASS"
 
         return AssertionResult(
             passed=passed,
             criterion=criterion,
-            reasoning=reasoning,
+            reasoning=evaluation.reasoning,
             content_preview=self._truncate(content),
         )

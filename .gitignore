@@ -47,6 +47,7 @@ htmlcov/
 .hypothesis/
 .ruff_cache/
 .mypy_cache/
+test_real_llm.py
 
 # Environment
 .env

@@ -1,5 +1,7 @@
 """Tests for pytest plugin integration."""
 
+from __future__ import annotations
+
 from unittest.mock import MagicMock
 
 from pytest_llm_assert import AssertionResult, LLMAssert, LLMResponse, plugin
@@ -28,14 +30,13 @@ class TestPluginHooks:
         )
 
         # Verify all options were added
-        assert mock_group.addoption.call_count == 3
+        assert mock_group.addoption.call_count == 2
 
         # Check option names
         calls = mock_group.addoption.call_args_list
         option_names = [call[0][0] for call in calls]
         assert "--llm-model" in option_names
         assert "--llm-api-key" in option_names
-        assert "--llm-api-base" in option_names
 
 
 class TestLlmAssertFixture:
@@ -49,14 +50,13 @@ class TestLlmAssertFixture:
 
         # The fixture function (unwrapped) expects a request object
         # We can't easily test the decorated fixture, so test the logic
-        model = pytestconfig.getoption("--llm-model", default="openai/gpt-5-mini")
+        model = pytestconfig.getoption("--llm-model", default="openai:gpt-4o-mini")
         api_key = pytestconfig.getoption("--llm-api-key", default=None)
-        api_base = pytestconfig.getoption("--llm-api-base", default=None)
 
-        result = LLMAssert(model=model, api_key=api_key, api_base=api_base)
+        result = LLMAssert(model=model, api_key=api_key)
 
         assert isinstance(result, LLMAssert)
-        assert result.model == "openai/gpt-5-mini"  # Default value
+        assert result.model_name == "openai:gpt-4o-mini"  # Default value
 
 
 class TestPackageExports:
@@ -77,16 +77,15 @@ class TestPackageExports:
 
     def test_version_available(self) -> None:
         """Package version should be accessible."""
-        import pytest_llm_assert
+        from pytest_llm_assert import __version__
 
-        assert hasattr(pytest_llm_assert, "__version__")
-        assert pytest_llm_assert.__version__ == "0.1.0"
+        assert __version__ == "0.1.0"
 
     def test_all_exports(self) -> None:
         """__all__ should list expected exports."""
-        import pytest_llm_assert
+        from pytest_llm_assert import __all__ as exports
 
-        assert set(pytest_llm_assert.__all__) == {
+        assert set(exports) == {
             "LLMAssert",
             "AssertionResult",
             "LLMResponse",

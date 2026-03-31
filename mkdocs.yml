@@ -1,0 +1,76 @@
+site_name: pytest-llm-assert
+site_description: "Simple LLM-powered assertions for any pytest test"
+site_url: https://sbroenne.github.io/pytest-llm-assert
+site_author: sbroenne
+repo_url: https://github.com/sbroenne/pytest-llm-assert
+repo_name: sbroenne/pytest-llm-assert
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+  icon:
+    repo: fontawesome/brands/github
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
+          options:
+            show_source: false
+            show_root_heading: true
+            show_root_full_path: false
+            heading_level: 2
+            members_order: source
+            docstring_style: google
+            merge_init_into_class: true
+            show_signature_annotations: true
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.details
+  - admonition
+  - tables
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - Configuration: configuration.md
+  - API Reference: api-reference.md
+  - Comparing Models: comparing-models.md
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/sbroenne/pytest-llm-assert
+  generator: false
