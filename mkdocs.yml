@@ -68,6 +68,11 @@ nav:
   - Configuration: configuration.md
   - API Reference: api-reference.md
   - Comparing Models: comparing-models.md
+  - Integration Tests: INTEGRATION_TESTS.md
+  - GitHub Setup Guide: GITHUB_SETUP_GUIDE.md
+
+exclude_docs: |
+  README.md
 
 extra:
   social:
